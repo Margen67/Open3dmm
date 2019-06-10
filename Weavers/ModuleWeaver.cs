@@ -18,6 +18,7 @@ namespace Weavers
         private MethodDefinition nativeObjectFromPointer;
         private MethodDefinition nativeObject_NativeHandle_Getter;
         private MethodDefinition nativeHandle_Address_Getter;
+        private int num;
         public override void AfterWeaving()
         {
             base.AfterWeaving();
@@ -64,35 +65,41 @@ namespace Weavers
                 }
             }
 
-            foreach (var grouping in targetMethods)
+            if (targetMethods.Count > 0)
             {
-                var (method, callingConvention) = grouping.Key;
-
-                if (method.HasGenericParameters)
-                    throw new NotSupportedException("Methods with generic parameters not supported");
-
-                var transitionalMethod = CreateTransitionalMethod(callingConvention, method, out var delegateType);
-                method.DeclaringType.Methods.Add(transitionalMethod.Resolve());
-                transitionalMethod = ModuleDefinition.ImportReference(transitionalMethod);
-
-                foreach (var attr in grouping)
+                TypeDefinition declaringType;
+                foreach (var grouping in targetMethods)
                 {
-                    var hookAddress = (IntPtr)Convert.ToInt32(attr.ConstructorArguments[0].Value);
+                    var (method, callingConvention) = grouping.Key;
 
-                    if (transitionalMethod != null)
+                    if (method.HasGenericParameters)
+                        throw new NotSupportedException("Methods with generic parameters not supported");
+
+                    var transitionalMethod = CreateTransitionalMethod(callingConvention, method, out var delegateType);
+                    declaringType = method.DeclaringType;
+                    declaringType.Methods.Add(transitionalMethod.Resolve());
+                    transitionalMethod = ModuleDefinition.ImportReference(transitionalMethod);
+
+                    foreach (var attr in grouping)
                     {
-                        ilInit.Emit(OpCodes.Ldc_I4, (int)hookAddress);
-                        //il.Emit(OpCodes.Ldtoken, transitionalMethod);
-                        //il.Emit(OpCodes.Call, prepareMethod);
-                        ilInit.Emit(OpCodes.Ldtoken, transitionalMethod);
-                        ilInit.Emit(OpCodes.Call, getMethodFromHandle);
-                        ilInit.Emit(OpCodes.Castclass, methodInfoType);
+                        var hookAddress = (IntPtr)Convert.ToInt32(attr.ConstructorArguments[0].Value);
 
-                        var createHookGeneric = createHook.MakeGenericMethod(delegateType);
-                        ilInit.Emit(OpCodes.Call, createHookGeneric);
+                        if (transitionalMethod != null)
+                        {
+                            ilInit.Emit(OpCodes.Ldc_I4, (int)hookAddress);
+                            //il.Emit(OpCodes.Ldtoken, transitionalMethod);
+                            //il.Emit(OpCodes.Call, prepareMethod);
+                            ilInit.Emit(OpCodes.Ldtoken, transitionalMethod);
+                            ilInit.Emit(OpCodes.Call, getMethodFromHandle);
+                            ilInit.Emit(OpCodes.Castclass, methodInfoType);
+
+                            var createHookGeneric = createHook.MakeGenericMethod(delegateType);
+                            ilInit.Emit(OpCodes.Call, createHookGeneric);
+                        }
                     }
                 }
             }
+
             ilInit.Emit(OpCodes.Ret);
 
             // NativeFieldOffset Properties
@@ -144,26 +151,6 @@ namespace Weavers
                 ilGetter.Emit(OpCodes.Call, intPtrAdd);
                 ilGetter.Emit(OpCodes.Call, intPtrToPointer);
                 ilGetter.Emit(OpCodes.Ret);
-
-
-                //ilGetter.Emit(OpCodes.Ldtoken, prop.PropertyType);
-                //ilGetter.Emit(OpCodes.Call, typeFromHandle);
-                //ilGetter.Emit(OpCodes.Call, ptrToStructure);
-                //ilGetter.Emit(OpCodes.Unbox_Any, prop.PropertyType);
-                //ilGetter.Emit(OpCodes.Ret);
-
-                //var ilSetter = prop.SetMethod.Body.GetILProcessor();
-                //ilSetter.Body.Instructions.Clear();
-                //ilSetter.Emit(OpCodes.Ldarg_1); // value
-                //ilSetter.Emit(OpCodes.Box, prop.PropertyType);
-                //ilSetter.Emit(OpCodes.Ldarg_0); // this
-                //ilSetter.Emit(OpCodes.Call, nativeObject_NativeHandle_Getter); // Get Handle
-                //ilSetter.Emit(OpCodes.Call, nativeHandle_Address_Getter); // Get address
-                //ilSetter.Emit(OpCodes.Ldc_I4, fieldOffset);
-                //ilSetter.Emit(OpCodes.Call, intPtrAdd);
-                //ilSetter.Emit(OpCodes.Ldc_I4_1); // true
-                //ilSetter.Emit(OpCodes.Call, structureToPtr);
-                //ilSetter.Emit(OpCodes.Ret);
             }
         }
 
@@ -183,11 +170,13 @@ namespace Weavers
 
         private MethodReference CreateTransitionalMethod(CallingConvention callingConvention, MethodDefinition method, out TypeReference delegateType)
         {
-            string methodName = "___Transitional_" + callingConvention + "_Method_" + method.Name;
+            string methodName = $"___Transitional_{callingConvention}_Method{num++}_{method.Name}";
             var methodAttr = method.Attributes;
             methodAttr &= ~Mono.Cecil.MethodAttributes.Public;
             methodAttr &= ~Mono.Cecil.MethodAttributes.Virtual;
             methodAttr &= ~Mono.Cecil.MethodAttributes.Abstract;
+            methodAttr &= ~Mono.Cecil.MethodAttributes.SpecialName;
+            methodAttr &= ~Mono.Cecil.MethodAttributes.RTSpecialName;
             methodAttr |= Mono.Cecil.MethodAttributes.Static;
             var declaringType = method.DeclaringType;
             var intPtrType = ModuleDefinition.TypeSystem.IntPtr;
@@ -290,7 +279,13 @@ namespace Weavers
             }
             il.Emit(OpCodes.Call, method);
             if (method.ReturnType == ModuleDefinition.TypeSystem.Void)
-                il.Emit(OpCodes.Ldc_I4_0); // Equivalent to IntPtr.Zero?
+            {
+                if (method.IsConstructor)
+                    il.Emit(OpCodes.Ldarg_0);
+                else
+                    il.Emit(OpCodes.Ldc_I4_0);
+
+            }
             else if (nativeObjectType.IsAssignableFrom(method.ReturnType))
             {
                 // Reference Return Type
