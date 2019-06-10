@@ -1,11 +1,11 @@
-﻿using Open3dmm.Classes;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace Open3dmm
 {
+#if NATIVEDEP
     public unsafe class NativeHandle : IDisposable
     {
         private static readonly Dictionary<IntPtr, NativeHandle> nativeDictionary = new Dictionary<IntPtr, NativeHandle>();
@@ -15,11 +15,12 @@ namespace Open3dmm
             return nativeDictionary.Values.ToArray();
         }
 
-        public T ChangeType<T>() where T : NativeObject, new()
+        public T ChangeType<T>() where T : NativeObject
         {
-            managedObject = new T();
+            var newObj = (T)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(T));
+            managedObject = newObj;
             managedObject.SetHandle(this);
-            return (T)managedObject;
+            return newObj;
         }
 
         public static bool TryDereference(IntPtr address, out NativeHandle handle)
@@ -75,30 +76,16 @@ namespace Open3dmm
 
         public int Size { get; }
 
-        public bool IsClass => IsClassTest();
-
         public bool IsDisposed => isDisposed;
 
         NativeObject managedObject;
-        public T QueryInterface<T>() where T : NativeObject, new()
-        {
-            try
-            {
-                if (!(managedObject is T))
-                {
-                    managedObject = ChangeType<T>();
-                }
-                return (T)managedObject;
-            }
-            catch
-            {
-                return null;
-            }
-        }
 
-        private bool IsClassTest()
+        public T QueryInterface<T>() where T : NativeObject
         {
-            return NativeObject.TryGetClassID(this, out _);
+            if (!(managedObject is T))
+                ChangeType<T>();
+
+            return (T)managedObject;
         }
 
         public event Action Disposed;
@@ -134,3 +121,4 @@ namespace Open3dmm
         #endregion
     }
 }
+#endif

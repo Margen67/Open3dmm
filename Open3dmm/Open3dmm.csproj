@@ -376,6 +376,7 @@
     <Compile Include="Hook.cs" />
     <Compile Include="NativeAbstraction.Graphics.cs" />
     <Compile Include="NativeAbstraction.Hooks.cs" />
+    <Compile Include="NativeClassSizeAttribute.cs" />
     <Compile Include="NativeFieldOffsetAttribute.cs" />
     <Compile Include="NativeHandle.cs" />
     <Compile Include="NativeObject.cs" />
