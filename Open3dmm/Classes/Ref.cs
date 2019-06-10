@@ -3,7 +3,7 @@
 namespace Open3dmm.Classes
 {
     [System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
-    public unsafe struct Ref<T> where T : NativeObject, new()
+    public unsafe struct Ref<T> where T : NativeObject
     {
         private string DebuggerDisplay => Value.ToString();
 
