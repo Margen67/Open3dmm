@@ -215,6 +215,7 @@ namespace Weavers
                     else staticThisCall = true;
                     goto case CallingConvention.StdCall;
 
+                case CallingConvention.Cdecl:
                 case CallingConvention.StdCall:
                     foreach (var param in method.Parameters)
                     {
