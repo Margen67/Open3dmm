@@ -47,7 +47,7 @@ namespace Open3dmm.Classes
             for (int i = 0; i < verts.Length; i++)
             {
                 var v = model.PreparedVertices[i];
-                verts[i] = new VertexPositionNormalTexture(Helper.XNAVector3FromBrVector3(&v.Position), Helper.XNAVector3FromBrFVector3(&v.Normal), Helper.XNAVector2FromBrVector2(&v.TextureCoordinate));
+                verts[i] = new VertexPositionNormalTexture(MathHelper.XNAVector3FromBrVector3(&v.Position), MathHelper.XNAVector3FromBrFVector3(&v.Normal), MathHelper.XNAVector2FromBrVector2(&v.TextureCoordinate));
             }
             var vertexBuffer = new VertexBuffer(GraphicsDevice, typeof(VertexPositionNormalTexture), verts.Length, BufferUsage.WriteOnly);
             vertexBuffer.SetData(verts);

@@ -367,13 +367,13 @@
     <Compile Include="GameTimer.cs" />
     <Compile Include="GDIHelper.cs" />
     <Compile Include="Graphics\BrWorldRenderer.cs" />
-    <Compile Include="Helper.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="HookFunctionAttribute.cs" />
     <Compile Include="ManagedArray.cs" />
     <Compile Include="Classes\ClassID.cs" />
     <Compile Include="FunctionNames.cs" />
     <Compile Include="Hook.cs" />
+    <Compile Include="MathHelper.cs" />
     <Compile Include="NativeAbstraction.Graphics.cs" />
     <Compile Include="NativeAbstraction.Hooks.cs" />
     <Compile Include="NativeClassSizeAttribute.cs" />

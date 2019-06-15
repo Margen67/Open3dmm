@@ -3,7 +3,7 @@ using Open3dmm.BRender;
 
 namespace Open3dmm
 {
-    internal unsafe class Helper
+    internal unsafe class MathHelper
     {
         public static Matrix XNAMatrixFromBrMatrix34(BrMatrix34* mat)
         {
