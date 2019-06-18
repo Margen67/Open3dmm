@@ -385,6 +385,7 @@
     <Compile Include="RegisterParamAttribute.cs" />
     <Compile Include="Registers.cs" />
     <Compile Include="StructExtensions.cs" />
+    <Compile Include="VirtualFunctionAttribute.cs" />
     <Compile Include="VtableAttribute.cs" />
     <Compile Include="WinApi\ApiDetour.cs" />
     <Compile Include="NativeAbstraction.Imports.cs" />

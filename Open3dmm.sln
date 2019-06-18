@@ -10,7 +10,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Open3dmm", "Open3dmm\Open3d
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Open3dmmBootstrapper", "Open3dmmBootstrapper\Open3dmmBootstrapper.vcxproj", "{910775F4-137E-49E5-B77D-0FFF12DE2DDD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Weavers", "Weavers\Weavers.csproj", "{9F23F595-97CC-486E-9891-968D4033D8AF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Weavers", "Weavers\Weavers.csproj", "{9F23F595-97CC-486E-9891-968D4033D8AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

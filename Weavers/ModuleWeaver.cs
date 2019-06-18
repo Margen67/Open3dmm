@@ -55,6 +55,39 @@ namespace Weavers
                                        let callingConvention = (CallingConvention)propCallingConvention.Argument.Value
                                        group attr by (method, callingConvention));
 
+                var virtualMethods = (from method in type.GetMethodsFlattenHierarchy()
+                                      where method.IsVirtual && method.IsHideBySig && nativeObjectType.IsAssignableFrom(method.DeclaringType)
+                                      group method by method.Resolve().Name);
+
+                foreach (var methodGroup in virtualMethods)
+                {
+                    if (methodGroup.Any(m => m.DeclaringType == type))
+                        continue;
+
+                    var baseT = type.Resolve();
+                    do
+                    {
+                        baseT = baseT.BaseType.Resolve();
+                        var virtualMethod = methodGroup.FirstOrDefault(m => m.DeclaringType == baseT);
+                        if (virtualMethod != null)
+                        {
+                            var attr = methodGroup.Where(m => m.CustomAttributes != null).SelectMany(m => m.CustomAttributes.Where(a => a.AttributeType.FullName == "Open3dmm.VirtualFunctionAttribute")).FirstOrDefault();
+                            if (attr == null)
+                            {
+                                LogError($"{virtualMethod.Name} is missing VirtualFunctionAttribute");
+                            }
+                            else
+                            {
+                                var vtableIndex = Convert.ToInt32(attr.ConstructorArguments[0].Value);
+                                var overrideMethod = CreateVirtualOverride(type, virtualMethod, vtableIndex * 4);
+                                if (overrideMethod != null)
+                                    type.Methods.Add(overrideMethod.Resolve());
+                            }
+                            break;
+                        }
+                    } while (baseT.BaseType != null);
+                }
+
                 foreach (var prop in type.Properties)
                 {
                     var attr = prop.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == "Open3dmm.NativeFieldOffsetAttribute");
@@ -152,6 +185,73 @@ namespace Weavers
                 ilGetter.Emit(OpCodes.Call, intPtrToPointer);
                 ilGetter.Emit(OpCodes.Ret);
             }
+        }
+
+        private MethodReference CreateVirtualOverride(TypeDefinition targetType, MethodDefinition method, int vtableOffset)
+        {
+            var methodAttr = method.Attributes;
+            methodAttr &= ~Mono.Cecil.MethodAttributes.NewSlot;
+            methodAttr |= Mono.Cecil.MethodAttributes.ReuseSlot;
+            var overrideMethod = new MethodDefinition(method.Name, methodAttr, method.ReturnType);
+            // this.VirtualCall(vtableOffset, arg1, arg2, ...);
+            var il = overrideMethod.Body.GetILProcessor();
+            il.Emit(OpCodes.Ldarg_0); // this
+            il.Emit(OpCodes.Ldc_I4, vtableOffset); // offset
+            int arg = 1;
+            foreach (var param in method.Parameters)
+            {
+                overrideMethod.Parameters.Add(new ParameterDefinition(param.ParameterType) { Name = param.Name });
+                if (!param.IsOut && !param.IsIn && !param.ParameterType.IsByReference && !param.ParameterType.IsPointer && param.ParameterType != ModuleDefinition.TypeSystem.IntPtr && param.ParameterType != ModuleDefinition.TypeSystem.UIntPtr)
+                {
+                    // Pass by value.
+                    if (param.ParameterType.IsValueType || param.ParameterType.IsPointer)
+                    {
+                        // Value Type
+                        il.Emit(OpCodes.Ldarg, arg);
+                    }
+                    else
+                    {
+                        // Reference Type
+                        if (!nativeObjectType.IsAssignableFrom(param.ParameterType))
+                        {
+                            LogError("Unsupported reference type parameter");
+                            return null;
+                        }
+
+                        var nop = il.Create(OpCodes.Nop);
+                        il.Emit(OpCodes.Ldarg, arg);
+                        il.Emit(OpCodes.Dup);
+                        il.Emit(OpCodes.Brtrue_S, nop);
+                        il.Emit(OpCodes.Pop);
+                        il.Emit(OpCodes.Ldc_I4_0); // return 0
+                        il.Emit(OpCodes.Ret);
+                        il.Append(nop);
+                        il.Emit(OpCodes.Call, nativeObject_NativeHandle_Getter); // Get Handle
+                        il.Emit(OpCodes.Call, nativeHandle_Address_Getter); // Get address
+                    }
+                }
+                else
+                {
+                    // Pointer
+                    il.Emit(OpCodes.Ldarg, arg);
+                }
+                arg++;
+            }
+            var virtualCallMethod = ModuleDefinition.GetType("Open3dmm.NativeObjectExtensions", false).Resolve().Methods.FirstOrDefault(m => m.Name == "VirtualCall" && m.Parameters.Count == method.Parameters.Count + 2);
+            il.Emit(OpCodes.Call, virtualCallMethod);
+            if (method.ReturnType == ModuleDefinition.TypeSystem.Void)
+            {
+                il.Emit(OpCodes.Pop);
+            }
+            else if (nativeObjectType.IsAssignableFrom(method.ReturnType))
+            {
+                // Reference Return Type
+                var nativeObjectFromPointerGeneric = nativeObjectFromPointer.MakeGenericMethod(method.ReturnType);
+                il.Emit(OpCodes.Call, nativeObjectFromPointerGeneric);
+            }
+            il.Emit(OpCodes.Ret);
+
+            return overrideMethod;
         }
 
         private TypeReference GetDelegateType(CallingConvention callingConvention, int count)

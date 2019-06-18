@@ -2,6 +2,7 @@
 
 using Mono.Cecil;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using SR = System.Reflection;
@@ -10,6 +11,19 @@ namespace Weavers
 {
     public static class Extensions
     {
+        public static IEnumerable<MethodDefinition> GetMethodsFlattenHierarchy(this TypeReference self)
+        {
+            var current = self.Resolve();
+            while (current.BaseType != null)
+            {
+                foreach (var method in current.Methods)
+                {
+                    if (method.DeclaringType == current)
+                        yield return method;
+                }
+                current = current.BaseType.Resolve();
+            }
+        }
 
         public static MethodDefinition GetMethod(this TypeDefinition self, string name)
         {
