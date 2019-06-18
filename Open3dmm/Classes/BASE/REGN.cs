@@ -60,7 +60,7 @@ namespace Open3dmm.Classes
                 Rectangle = *source;
             if (ParentList.Value != null)
             {
-                ParentList.Value.VirtualCall(0x10);
+                ParentList.Value.DecreaseReferenceCounter();
                 ParentList.Value = null;
             }
             UnmanagedFunctionCall.StdCall(new IntPtr(0x0042b950), GdiHandle.AsPointer());

@@ -387,6 +387,7 @@
     <Compile Include="StructExtensions.cs" />
     <Compile Include="VirtualFunctionAttribute.cs" />
     <Compile Include="VtableAttribute.cs" />
+    <Compile Include="VtableHelper.cs" />
     <Compile Include="WinApi\ApiDetour.cs" />
     <Compile Include="NativeAbstraction.Imports.cs" />
     <Compile Include="PE\IMAGE_IMPORT_BY_NAME.cs" />

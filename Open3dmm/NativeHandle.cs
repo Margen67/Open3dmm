@@ -15,30 +15,10 @@ namespace Open3dmm
             return nativeDictionary.Values.ToArray();
         }
 
-        public T ChangeType<T>() where T : NativeObject
-        {
-            var newObj = (T)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(T));
-            managedObject = newObj;
-            managedObject.SetHandle(this);
-            return newObj;
-        }
-
-        public static bool TryDereference(IntPtr address, out NativeHandle handle)
-        {
-            if (address == IntPtr.Zero)
-            {
-                handle = default;
-                return false;
-            }
-            if (!nativeDictionary.TryGetValue(address, out handle))
-                handle = new NativeHandle(address);
-            return true;
-        }
-
         public static NativeHandle Dereference(IntPtr address)
         {
-            if (!TryDereference(address, out var handle))
-                throw new ArgumentException("No handle found at specified address");
+            if (!nativeDictionary.TryGetValue(address, out var handle))
+                handle = new NativeHandle(address);
             return handle;
         }
 
@@ -55,6 +35,8 @@ namespace Open3dmm
             return new NativeHandle(size);
         }
 
+        internal int lastVtable;
+
         private NativeHandle(int size)
         {
             var address = Marshal.AllocHGlobal(size);
@@ -67,7 +49,9 @@ namespace Open3dmm
 
         private NativeHandle(IntPtr address)
         {
-            nativeDictionary[address] = this;
+            if (address.ToPointer() > NativeAbstraction.ModuleHandle.ToPointer())
+                nativeDictionary[address] = this;
+            lastVtable = *(int*)address;
             Address = address;
             Size = 1024;
         }
@@ -82,9 +66,51 @@ namespace Open3dmm
 
         public T QueryInterface<T>() where T : NativeObject
         {
-            if (!(managedObject is T))
-                ChangeType<T>();
+            Type nativeInstanceType;
+            int vtable = *(int*)Address;
 
+            if (vtable != lastVtable && VtableHelper.TryGetClassID(vtable, out var classID))
+            {
+                // Native class is initialized, so we can assume the real instance type.
+                nativeInstanceType = Type.GetType($"Open3dmm.Classes.{classID.ToString().ToUpperInvariant()}", true);
+                if (managedObject != null && nativeInstanceType != managedObject.GetType())
+                {
+                    // The managed object has been assigned previously but it doesn't match the native type.
+
+                    if (nativeInstanceType.IsAssignableFrom(managedObject.GetType()))
+                    {
+                        // The native instance type is a base of the current type.
+
+                        // This only really happens when the object is in
+                        // the process of being freed.
+
+                        // Since the object can simply be cast, we reuse the
+                        // managed instance.
+
+                        goto ReturnCurrent;
+                    }
+                    //else
+                    //{
+                    //    Managed code was called before initialization could complete.
+                    //    We need to replace the managedObject with a new one of the new type.
+                    //}
+                }
+                managedObject = (NativeObject)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(nativeInstanceType);
+                managedObject.SetHandle(this);
+                lastVtable = vtable;
+            }
+            else if (managedObject == null)
+            {
+                // Provide a temporary means of accessing the object in managed code.
+                var tempInterface = (T)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(T));
+                tempInterface.SetHandle(this);
+                return tempInterface;
+            }
+
+        ReturnCurrent:
+            nativeInstanceType = managedObject.GetType();
+            if (!typeof(T).IsAssignableFrom(nativeInstanceType))
+                throw new InvalidOperationException($"Expected type '{typeof(T)}' but instance is of type '{nativeInstanceType}'");
             return (T)managedObject;
         }
 
@@ -101,8 +127,8 @@ namespace Open3dmm
                 {
                 }
 
-                nativeDictionary.Remove(Address);
-                Marshal.FreeHGlobal(Address);
+                if (nativeDictionary.Remove(Address))
+                    Marshal.FreeHGlobal(Address);
                 isDisposed = true;
                 Disposed?.Invoke();
             }

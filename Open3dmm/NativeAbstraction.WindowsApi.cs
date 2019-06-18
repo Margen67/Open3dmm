@@ -1,5 +1,6 @@
 ﻿using Open3dmm.WinApi;
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Open3dmm
@@ -34,7 +35,8 @@ namespace Open3dmm
             {
                 return (dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam) =>
                 {
-                    var result = originalFunction(dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
+                    const string windowName = "Open3DMM";
+                    var result = originalFunction(dwExStyle, lpClassName, Marshal.StringToHGlobalAnsi(windowName), dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
                     if (MainWindowHandle == IntPtr.Zero)
                     {
                         MainWindowHandle = result;

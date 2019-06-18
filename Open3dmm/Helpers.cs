@@ -1,11 +1,12 @@
 ﻿using Open3dmm.BRender;
 using System;
+using System.Runtime.InteropServices;
 
 namespace Open3dmm
 {
     public static unsafe class Helpers
     {
-        [HookFunction(0x004198c0, CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall)]
+        [HookFunction(0x004198c0, CallingConvention = CallingConvention.StdCall)]
         public static void ScaleCalculation(int value, BrScalar scale, int* hiResult, int* loResult)
         {
             ScaleCalculation(value, scale, out var result);
@@ -18,10 +19,24 @@ namespace Open3dmm
             result = (long)value * scale.ToFixed();
         }
 
-        [HookFunction(0x00462080, CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall)]
+        [HookFunction(0x00462080, CallingConvention = CallingConvention.StdCall)]
         public static int timeGetTime()
         {
             return Environment.TickCount;
+        }
+
+        [HookFunction(FunctionNames.MemSwap, CallingConvention = CallingConvention.StdCall)]
+        public static void MemSwap(void* a, void* b, int length)
+        {
+            byte current;
+            var spanA = new Span<byte>(a, length);
+            var spanB = new Span<byte>(b, length);
+            while (--length >= 0)
+            {
+                current = spanA[length];
+                spanA[length] = spanB[length];
+                spanB[length] = current;
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 namespace Open3dmm.Classes
 {
@@ -13,5 +14,6 @@ namespace Open3dmm.Classes
         public static Pointer<uint> GlobalColorEntries => GetGlobal<uint>(0x004E3CA0);
         public static Pointer<IntPtr> Global004e3c98 => GetGlobal<IntPtr>(0x004e3c98);
         public static GOB GlobalRootGOB => FromPointer<GOB>(GetGlobal<IntPtr>(0x004d585c));
+        public static Ref<ERS> PTR_ERS_004e39a8 => Marshal.PtrToStructure<Ref<ERS>>(new IntPtr(0x004e39a8));
     }
 }

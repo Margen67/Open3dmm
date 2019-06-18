@@ -4,10 +4,11 @@ using System.Runtime.InteropServices;
 
 namespace Open3dmm.Classes
 {
+    [NativeClassSize(0x8c)]
     public unsafe class GPT : BASE
     {
         [NativeFieldOffset(0x08)]
-		public extern ref Ref<REGN> Region { get; }
+        public extern ref Ref<REGN> Region { get; }
         [NativeFieldOffset(0x0C)]
         public extern ref RECTANGLE ClipRect { get; }
         [NativeFieldOffset(0x1C)]
@@ -46,6 +47,12 @@ namespace Open3dmm.Classes
         public int Width => Bounds.Right - Bounds.Left;
         public int Height => Bounds.Bottom - Bounds.Top;
 
+        private GPT() : base()
+        {
+            Vtable = new VTABLE(0x4df278);
+            Field_0x68 = 0;
+        }
+
         [HookFunction(FunctionNames.GPT_BlitMBMP, CallingConvention = CallingConvention.ThisCall)]
         public void BlitMBMP(MBMP mbmp, RECTANGLE* dest, GNV_UnkStruct1* unkStruct)
         {
@@ -78,7 +85,7 @@ namespace Open3dmm.Classes
                             mbmp.ThisCall((IntPtr)FunctionNames.MBMP_Method00425850, gptMaskMaybe.PixelBuffer, (IntPtr)gptMaskMaybe.Stride, new IntPtr(mbmpRect.Height), new IntPtr(-mbmpRect.Left), new IntPtr(-mbmpRect.Top), new IntPtr(&mbmpRect)); // call 0x00425850
                             FUN_0042a550(unkStruct->Clip);
                             PInvoke.Call(LibraryNames.GDI32, "StretchBlt", DC, new IntPtr(dest->Left), new IntPtr(dest->Top), new IntPtr(dest->Width), new IntPtr(dest->Height), gptMaskMaybe.DC, IntPtr.Zero, IntPtr.Zero, new IntPtr(mbmpRect.Width), new IntPtr(mbmpRect.Height), new IntPtr(0xEE0086));
-                            gptMaskMaybe.VirtualCall(0x10); // Free?
+                            gptMaskMaybe.DecreaseReferenceCounter();
 
                             if (FromPointer<GPT>(UnmanagedFunctionCall.StdCall((IntPtr)FunctionNames.AllocateGPT, new IntPtr(&mbmpRect), new IntPtr(8))) is GPT gptColor)
                             {
@@ -86,12 +93,12 @@ namespace Open3dmm.Classes
                                 mbmpRect.ToGDI(&fill);
 
                                 PInvoke.Call(LibraryNames.USER32, "FillRect", gptColor.DC, new IntPtr(&fill), PInvoke.Call(LibraryNames.GDI32, "GetStockObject", IntPtr.Zero));
-                                UnmanagedFunctionCall.StdCall((IntPtr)FunctionNames.FlushGDI);
+                                GDIHelper.FlushGdi();
 
                                 mbmp.Blit(gptColor.PixelBuffer, gptColor.Stride, mbmpRect.Height, -mbmpRect.Left, -mbmpRect.Top, &mbmpRect, null);
 
                                 PInvoke.Call(LibraryNames.GDI32, "StretchBlt", DC, new IntPtr(dest->Left), new IntPtr(dest->Top), new IntPtr(dest->Width), new IntPtr(dest->Height), gptColor.DC, IntPtr.Zero, IntPtr.Zero, new IntPtr(mbmpRect.Width), new IntPtr(mbmpRect.Height), new IntPtr(0x8800C6));
-                                gptColor.VirtualCall(0x10); // Free?
+                                gptColor.DecreaseReferenceCounter();
                             }
                         }
                     }
@@ -101,7 +108,7 @@ namespace Open3dmm.Classes
                         if (clip.CalculateIntersection((RECTANGLE*)Bounds.AsPointer()))
                         {
                             if (FlushCounter >= APP.GlobalFlushCounter)
-                                UnmanagedFunctionCall.StdCall((IntPtr)FunctionNames.FlushGDI);
+                                GDIHelper.FlushGdi();
                             int offsetX = dest->Left - mbmpRect.Left;
                             int offsetY = dest->Top - mbmpRect.Top;
                             mbmp.Blit(PixelBuffer, Stride, Bounds.Height, offsetX, offsetY, &clip, Region);
@@ -113,7 +120,7 @@ namespace Open3dmm.Classes
                     if (clip.CalculateIntersection((RECTANGLE*)Bounds.AsPointer()))
                     {
                         if (FlushCounter >= APP.GlobalFlushCounter)
-                            UnmanagedFunctionCall.StdCall((IntPtr)FunctionNames.FlushGDI);
+                            GDIHelper.FlushGdi();
                         // TODO: Implement 32 bit GPT
                     }
                 }
@@ -148,7 +155,7 @@ namespace Open3dmm.Classes
             }
 
             IntPtr hrgn;
-            if (Region.Value== null)
+            if (Region.Value == null)
             {
                 hrgn = IntPtr.Zero;
                 goto SelectHRGN;
@@ -196,12 +203,12 @@ namespace Open3dmm.Classes
                 {
                     FromPointer<REGN>(new IntPtr(*swap)).Offset(-OffsetX, -OffsetY);
                 }
-                if (Region.Value!= null)
+                if (Region.Value != null)
                 {
                     Region.Value.Offset(OffsetX, OffsetY);
                 }
             }
-            UnmanagedFunctionCall.StdCall(new IntPtr(0x00419330), Region.AsPointer(), new IntPtr(swap), new IntPtr(4)); // memswap
+            Helpers.MemSwap((void*)Region.AsPointer(), swap, 4);
             UnkFlags = UnkFlags | 1;
             return;
         }
@@ -245,8 +252,7 @@ namespace Open3dmm.Classes
             }
             else
             {
-                // (**(code**)(*(int*)PTR_DAT_004e39a8 + 0x14))(10000);
-                throw new NotImplementedException("Need to identify PTR_DAT_004e39a8");
+                PTR_ERS_004e39a8.Value.VirtualCall(0x14, new IntPtr(10000)); // VirtualFunc1
             }
             return result;
         }
@@ -258,21 +264,11 @@ namespace Open3dmm.Classes
 
             if (dc != default)
             {
-                var alloc = Program.Malloc(0x8c);
-                if (alloc != default)
+                @this = new GPT();
+                if (!@this.SetDC(dc))
                 {
-                    BASE_Init(alloc);
-                    Marshal.WriteInt32(alloc, 0x4df278);
-                    @this = FromPointer<GPT>(alloc);
-                    @this.Field_0x68 = 0;
-                }
-                if (@this != null)
-                {
-                    if (!@this.SetDC(dc))
-                    {
-                        @this.VirtualCall(0x10); // Free?
-                        @this = null;
-                    }
+                    @this.DecreaseReferenceCounter();
+                    @this = null;
                 }
             }
             return @this;
@@ -307,10 +303,6 @@ namespace Open3dmm.Classes
             Field_0x84 = 4;
             hdc = DC;
             ClipRect = new RECTANGLE(-0x3fffffff, -0x3fffffff, 0x3fffffff, 0x3fffffff);
-            //ClipRect.Top = -0x3fffffff;
-            //ClipRect.Left = -0x3fffffff;
-            //ClipRect.Bottom = 0x3fffffff;
-            //ClipRect.Right = 0x3fffffff;
             PInvoke.Call(LibraryNames.GDI32, "SelectClipRgn", hdc, IntPtr.Zero);
             PInvoke.Call(LibraryNames.GDI32, "SetPolyFillMode", DC, new IntPtr(2));
             return true;
@@ -362,7 +354,7 @@ namespace Open3dmm.Classes
             }
             if (APP.GlobalFlushCounter <= FlushCounter)
             {
-                UnmanagedFunctionCall.StdCall((IntPtr)FunctionNames.FlushGDI);
+                GDIHelper.FlushGdi();
             }
             if (dest != null)
             {

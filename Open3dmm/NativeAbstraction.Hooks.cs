@@ -9,15 +9,15 @@ namespace Open3dmm
         {
             NativeWeaver.Init();
 
-            Hook.Create<ThisCall0>(AddressOfFunction(FunctionNames.BWLD_Render), ctx =>
-            {
-                return (ecx) =>
-                {
-                    var bwld = NativeObject.FromPointer<BWLD>(ecx);
-                    ctx.CallOriginal(o => o(ecx));
-                    return new IntPtr(1);
-                };
-            }).Initialize();
+            //Hook.Create<ThisCall0>(AddressOfFunction(FunctionNames.BWLD_Render), ctx =>
+            //{
+            //    return (ecx) =>
+            //    {
+            //        var bwld = NativeObject.FromPointer<BWLD>(ecx);
+            //        ctx.CallOriginal(o => o(ecx));
+            //        return new IntPtr(1);
+            //    };
+            //}).Initialize();
         }
     }
 }

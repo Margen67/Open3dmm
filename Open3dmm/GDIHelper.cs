@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Open3dmm.Classes;
+using Open3dmm.WinApi;
+using System;
 using System.Runtime.InteropServices;
 
 namespace Open3dmm
@@ -16,6 +18,14 @@ namespace Open3dmm
                 if (input < MinExtent)
                     output = MinExtent;
             }
+        }
+
+        [HookFunction(FunctionNames.FlushGDI, CallingConvention = CallingConvention.StdCall)]
+        public static void FlushGdi()
+        {
+            PInvoke.Call(LibraryNames.GDI32, "GdiFlush");
+            BASE.GlobalFlushCounter.Value++;
+            return;
         }
     }
 }

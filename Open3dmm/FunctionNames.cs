@@ -58,7 +58,7 @@
         __setargv = 0x004C73B9,
         __setenvp = 0x004C72EE,
         __WinMainCRTStartup = 0x004C5E88,
-        GOB_FUN_00424580 = 0x00424580,
+        GOB_VirtualFunc14 = 0x00424580,
         GNV_BlitMBMP = 0x00421FA0,
         GNV_FUN_00422050 = 0x00422050,
         POINT_ToGDI = 0x00419B20,
@@ -80,12 +80,18 @@
         CMH_GetClassID = 0x0041E250,
         CMH_IsDerivedFrom = 0x0041E240,
         CMH__IsDerivedFrom = 0x0041E220,
-        CMH_VirtualFunc6 = 0x0041F630,
-        CMH_VirtualFunc7 = 0x0041E350,
+        CMH_VirtualFunc1 = 0x0041F630,
+        CMH_VirtualFunc2 = 0x0041E350,
         CMH_Init = 0x0041e300,
         GOB_Init = 0x00422db0,
         GOB_GetPrevious = 0x00424990,
         ACTR_IsDerivedFrom = 0x004baeb0,
-        ACTR__IsDerivedFrom = 0x004bae90
+        ACTR__IsDerivedFrom = 0x004bae90,
+        ACTR_GetClassID = 0x004baec0,
+        ACTR_Free = 0x004c17b0,
+        ACTR__Free = 0x004baf10,
+        ACTR_Init = 0x004baed0,
+        MemSwap = 0x00419330,
+        GOB_VirtualFunc15 = 0x00424610
     }
 }

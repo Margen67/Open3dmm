@@ -9,33 +9,34 @@ namespace Open3dmm.Classes
         [NativeFieldOffset(0x0C)]
         public extern ref IntPtr HWND { get; }
         [NativeFieldOffset(0x10)]
-		public extern ref Ref<GPT> GPT { get; }
+        public extern ref Ref<GPT> GPT { get; }
 
         [NativeFieldOffset(0x18)]
         public extern ref RECTANGLE Rect { get; }
-        
+
         [NativeFieldOffset(0x28)]
         public extern ref RECTANGLE ClipRect { get; }
 
         [NativeFieldOffset(0x58)]
-		public extern ref Ref<GOB> Parent { get; }
+        public extern ref Ref<GOB> Parent { get; }
         [NativeFieldOffset(0x5C)]
-		public extern ref Ref<GOB> FirstChild { get; }
+        public extern ref Ref<GOB> FirstChild { get; }
         [NativeFieldOffset(0x60)]
         public extern ref Ref<GOB> Next { get; }
 
         [NativeFieldOffset(0x6C)]
         public extern ref uint Flags_6C { get; }
 
-        [HookFunction(FunctionNames.GOB_Init, CallingConvention = CallingConvention.ThisCall)]
-        public static IntPtr GOB_Init(IntPtr address, AutoClass1_Rectangles* flags)
+        // TODO: Remove default constructor and implement derived constructors.
+        public GOB()
         {
-            CMH_Init(address, flags->Unk1);
-            var h = NativeHandle.Dereference(address);
-            var obj = h.ChangeType<GOB>();
-            obj.Vtable = new VTABLE(0x4df198);
-            UnmanagedFunctionCall.ThisCall(new IntPtr(0x00422DE0), address, new IntPtr(flags));
-            return address;
+        }
+
+        [HookFunction(FunctionNames.GOB_Init, CallingConvention = CallingConvention.ThisCall)]
+        public GOB(AutoClass1_Rectangles* flags) : base(flags->Unk1)
+        {
+            Vtable = new VTABLE(0x4df198);
+            this.ThisCall(new IntPtr(0x00422DE0), new IntPtr(flags));
         }
 
         [HookFunction(FunctionNames.GOB_Update, CallingConvention = CallingConvention.ThisCall)]
@@ -108,15 +109,15 @@ namespace Open3dmm.Classes
                     dest->X = 0;
                     parent = @this.Parent;
                     current = @this;
-                    if (@this.Parent.Value!= null)
+                    if (@this.Parent.Value != null)
                     {
-                        while ((pGVar3 = parent).GPT.Value== @this.GPT.Value)
+                        while ((pGVar3 = parent).GPT.Value == @this.GPT.Value)
                         {
                             dest->X += current.Rect.Left;
                             dest->Y += current.Rect.Top;
                             parent = pGVar3.Parent.Value;
                             current = pGVar3;
-                            if (pGVar3.Parent.Value== null)
+                            if (pGVar3.Parent.Value == null)
                                 break;
                         }
                     }
@@ -153,24 +154,25 @@ namespace Open3dmm.Classes
             return hWnd;
         }
 
-        [HookFunction(FunctionNames.GOB_FUN_00424580, CallingConvention = CallingConvention.ThisCall)]
-        public GOB FUN_00424580(int offsetX, int offsetY, POINT* unk)
+        [HookFunction(FunctionNames.GOB_VirtualFunc14, CallingConvention = CallingConvention.ThisCall)]
+        [VirtualFunction(18)]
+        public virtual GOB VirtualFunc14(int offsetX, int offsetY, POINT* unk)
         {
             offsetX -= Rect.Left;
             offsetY -= Rect.Top;
-            if (this.VirtualCall(0x50, new IntPtr(offsetX), new IntPtr(offsetY)) != IntPtr.Zero)
+            if (HitTest(offsetX, offsetY))
             {
                 var child = FirstChild.Value;
                 while (child != null)
                 {
-                    var result = child.FUN_00424580(offsetX, offsetY, unk);
+                    var result = child.VirtualFunc14(offsetX, offsetY, unk);
                     if (result != null)
                         return result;
                     child = child.Next.Value;
                 }
             }
 
-            if (this.VirtualCall(0x4c, new IntPtr(offsetX), new IntPtr(offsetY)) == IntPtr.Zero)
+            if (!VirtualFunc15(offsetX, offsetY))
                 return null;
 
             if (unk != null)
@@ -181,17 +183,28 @@ namespace Open3dmm.Classes
             return this;
         }
 
-        [HookFunction(FunctionNames.GOB_HitTest, CallingConvention = CallingConvention.ThisCall)]
-        public bool HitTest(int posX, int posY)
+        [HookFunction(FunctionNames.GOB_VirtualFunc15, CallingConvention = CallingConvention.ThisCall)]
+        [VirtualFunction(19)]
+        public virtual bool VirtualFunc15(int x, int y)
         {
             RECTANGLE rect;
 
             if (Flags_8 == 0x11)
-            {
                 return false;
-            }
             GetRect(&rect, 0);
-            return rect.HitTest(posX, posY);
+            return rect.HitTest(x, y);
+        }
+
+        [HookFunction(FunctionNames.GOB_HitTest, CallingConvention = CallingConvention.ThisCall)]
+        [VirtualFunction(20)]
+        public virtual bool HitTest(int x, int y)
+        {
+            RECTANGLE rect;
+
+            if (Flags_8 == 0x11)
+                return false;
+            GetRect(&rect, 0);
+            return rect.HitTest(x, y);
         }
 
         [HookFunction(FunctionNames.GOB_GetHWND, CallingConvention = CallingConvention.ThisCall)]
@@ -212,7 +225,7 @@ namespace Open3dmm.Classes
             get {
                 var element = GlobalRootGOB;
 
-                if (Parent.Value!= null)
+                if (Parent.Value != null)
                 {
                     element = Parent.Value.FirstChild.Value;
                 }
@@ -221,7 +234,7 @@ namespace Open3dmm.Classes
                     return null;
                 }
 
-                while (element.Next != this)
+                while (element.Next.Value != this)
                     element = element.Next;
 
                 return element;
